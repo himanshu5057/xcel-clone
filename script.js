@@ -5,6 +5,7 @@ let r = 0;
 let y = n;
 const ps = new PerfectScrollbar("#cells");
 for (let j = 0; j <= n; j++) {
+    console.log()
     if (s > 0) {
         fl = String.fromCharCode(65 + s - 1);
     }
@@ -12,7 +13,7 @@ for (let j = 0; j <= n; j++) {
     if (j == 25) {
         x = fl + 'Z';
         n -= 26;
-        j--;
+        j=-1;
         s++;
     }
     else {
@@ -42,7 +43,10 @@ let defaultProperties={
     "underlined":false,
     "alignment":"left",
     "color":"#444",
-    "bgcolor":"#fff"
+    "bgcolor":"#fff",
+    "formula":"",
+    "upStream":[],
+    "downStream":[]
 }
 
 for (let i = 0; i < y; i++) {
@@ -220,6 +224,7 @@ $(".input-cell").mousemove(function (e) {
             startCell = { "rowID": row, "colID": col };
             startCellSelected = true;
             selectAllBetweenMultipleCells(startCell, startCell);
+            $(".input-cell.selected").attr("contenteditable","false");
         }
 
     }
@@ -391,12 +396,12 @@ function updateCellData(property,value){
             let [row,col]=getRowCol(data);
             if(cellData[selectedSheet][row]==undefined){
                 cellData[selectedSheet][row]={};
-                cellData[selectedSheet][row][col]={...defaultProperties};
+                cellData[selectedSheet][row][col]={...defaultProperties,"upStream":[],"downStream":[]};
                 cellData[selectedSheet][row][col][property]=value;
             }
             else{
                 if( cellData[selectedSheet][row][col]==undefined){
-                    cellData[selectedSheet][row][col]={...defaultProperties};
+                    cellData[selectedSheet][row][col]={...defaultProperties,"upStream":[],"downStream":[]};
                     cellData[selectedSheet][row][col][property]=value;
                 }
                 else{
@@ -791,31 +796,57 @@ function openFile(){
         });
 }
 let clipboard={"startCell":[],"cellData":{}};
-
-$("#copy").click(function(e){
+let contentCutted=false;
+$("#cut,#copy").click(function(e){
+    let a=$(this).attr("id");
+    if (a == "cut") {
+        contentCutted = true;
+    }
+    // clipboard={"startCell":[],"cellData":{}};
     clipboard.startCell=getRowCol($(".input-cell.selected")[0]);
-    $(".input-cell.selected").each(function(data,index){
+    $(".input-cell.selected").each(function(index,data){
         let [row,col]=getRowCol(data);
-        if(cellData[selectedSheet][row]&&cellData[selectSheet][row][col]){
+        if(cellData[selectedSheet][row]&&cellData[selectedSheet][row][col]){
             if(!clipboard.cellData[row]){
                 clipboard.cellData[row]={};
             }
             clipboard.cellData[row][col]={...cellData[selectedSheet][row][col]};
-
-
         }
     })
 });
 
 $("#paste").click(function(e){
+    if (contentCutted) {
+        emptyPreviousSheet();
+    }
     let startCell=getRowCol($(".input-cell.selected")[0]);
     let rows=Object.keys(clipboard.cellData);
+    for (let i of rows) {
+        let cols = Object.keys(clipboard.cellData[i]);
+        for (let j of cols) {
+            if (contentCutted) {
+                delete cellData[selectedSheet][i][j];
+                if (Object.keys(cellData[selectedSheet][i]).length == 0) {
+                    delete cellData[selectedSheet][i];
+                }
+            }
+        }
+    }
     for(let i of rows){
         let cols=Object.keys(clipboard.cellData[i]);
         for(let j of cols){
             let rowDistance=parseInt(i)-parseInt(clipboard.startCell[0]);
             let colDistance=parseInt(j)-parseInt(clipboard.startCell[1]);
-            // if(!cellData[selectedSheet][row])
+            if(!cellData[selectedSheet][startCell[0]+rowDistance]){
+                cellData[selectedSheet][startCell[0]+rowDistance]={};
+            }
+            cellData[selectedSheet][startCell[0]+rowDistance][startCell[1]+colDistance]={...clipboard.cellData[i][j]};
         }
     }
+    loadCurrentSheet();
+    if (contentCutted) {
+        contentCutted = false;
+        clipboard = { "startCell": [], "cellData": {} };
+    }
 })
+
